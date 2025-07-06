@@ -5,236 +5,220 @@ import numpy as np
 from time import sleep
 from pynput.keyboard import Controller, Key
 
-COR_BRANCO = (255, 255, 255)
-COR_PRETO = (0, 0, 0)
-COR_AZUL = (255, 0, 0)
-COR_VERDE = (0, 255, 0)
-COR_VERMELHO = (0, 0, 255)
-COR_AZUL_CLARO = (255, 255, 0)
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+BLUE = (255, 0, 0)
+GREEN = (0, 255, 0)
+RED = (0, 0, 255)
+LIGHT_BLUE = (255, 255, 0)
 
-mp_maos = mp.solutions.hands
-mp_desenho = mp.solutions.drawing_utils
-maos = mp_maos.Hands()
+mp_hands = mp.solutions.hands
+mp_draw = mp.solutions.drawing_utils
+hands = mp_hands.Hands()
 
-camera = cv2.VideoCapture(0)
-resolucao_x = 1280
-resolucao_y = 720
-camera.set(cv2.CAP_PROP_FRAME_WIDTH, resolucao_x)
-camera.set(cv2.CAP_PROP_FRAME_HEIGHT, resolucao_y)
-font_style = cv2.FONT_HERSHEY_DUPLEX
-word_app = False
-firefox_app = False
-excel_app = False
-dedos_true_1 = [False, True, False, False, False]
-dedos_true_1_2 = [False, True, True, False, False]
-dedos_true_1_2_3 = [False, True, True, True, False]
-dedos_true_1_4 = [False, True, False, False, True]
-dedos_true_4 = [False, False, False, False, True]
-dedos_false = [False, False, False, False, False]
-teclas = [['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'O', 'P'],
-          ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'K', 'L'],
-          ['Z', 'X', 'C', 'V', 'B', 'N', 'M', 'M', ',', '.', ';']]
-offset = 50
-tamanho = 50
-contador = 0
-texto = ">"
-teclado = Controller()
-img_quadro = np.ones((resolucao_y, resolucao_x, 3), np.uint8) * 255
-cor_pincel = COR_AZUL
-espessura_pincel = 1
-x_quadro, y_quadro = 0, 0
+cap = cv2.VideoCapture(0)
+RES_X = 1280
+RES_Y = 720
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, RES_X)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, RES_Y)
+FONT = cv2.FONT_HERSHEY_DUPLEX
+word_open = False
+firefox_open = False
+excel_open = False
+FINGER_1 = [False, True, False, False, False]
+FINGER_1_2 = [False, True, True, False, False]
+FINGER_1_2_3 = [False, True, True, True, False]
+FINGER_1_4 = [False, True, False, False, True]
+FINGER_4 = [False, False, False, False, True]
+FINGER_0 = [True, False, False, False, False]
+FINGER_NONE = [False, False, False, False, False]
+FINGER_ALL = [True, True, True, True, True]
+KEYS = [
+    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'O', 'P'],
+    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'K', 'L'],
+    ['Z', 'X', 'C', 'V', 'B', 'N', 'M', 'M', ',', '.', ';']
+]
+OFFSET = 80
+BTN_SIZE = 50
+key_delay = 0
+text = ">"
+keyboard = Controller()
+draw_board = np.ones((RES_Y, RES_X, 3), np.uint8) * 255
+brush_color = BLUE
+brush_thickness = 1
+last_x, last_y = 0, 0
 
-# Texto de instruções
-instrucao_texto = (
+INSTRUCTION = (
     """
-    *Escrever texto*:\n
-        Use a mao direita. Toque nas teclas virtuais com o indicador para digitar.\n
-        Para apagar, levante apenas o dedo mindinho da mão direita.\n
-        *Abrir aplicativos* (mão esquerda):\n
-            - Indicador levantado: abre o Word\n
-            - Indicador e médio levantados: abre o Excel\n
-            - Indicador, médio e anelar levantados: abre o Firefox\n
-            - Todos os dedos fechados: fecha o Firefox\n
-    *Desenhar* (duas mãos):\n
-        Mão esquerda define a cor do pincel:\n
-            - 1 dedo levantado: azul\n
-            - 2 dedos levantados: verde\n
-            - 3 dedos levantados: vermelho\n
-            - 4 dedos levantados: borracha\n
-            - Todos os dedos fechados: limpa o quadro\n
-        Mão direita desenha na tela com o indicador.\n
-        A distância da mão direita até a câmera altera a espessura do pincel.
+    *Type text*:\n
+        Use right hand. Touch virtual keys with index finger to type.\n
+        To erase, raise only the right pinky.\n
+    *Open apps* (left hand):\n
+            - Index up: open Word\n
+            - Index and middle up: open Excel\n
+            - Index, middle, ring up: open Firefox\n
+            - All fingers down: close Firefox\n
+    *Draw* (two hands):\n
+        Left hand sets brush color:\n
+            - 1 finger up: blue\n
+            - 2 up: green\n
+            - 3 up: red\n
+            - 4 up: eraser\n
+            - All down: clear board\n
+        Right hand draws with index.\n
+        Right hand distance to camera changes brush thickness.
     """
 )
 
-def encotra_coordenadas_maos(img, lado_invertido = False):
+def get_hand_landmarks(img, flip_side=False):
+    """Detect hand landmarks and return their coordinates and side."""
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    resultado = maos.process(img_rgb)
-    todas_maos = []
-    if resultado.multi_hand_landmarks:
-        for lado_mao, marcacoes_maos in zip(resultado.multi_handedness, resultado.multi_hand_landmarks):
-            info_mao = {}
-            coordenadas = []
-            for marcacao in marcacoes_maos.landmark:
-                coord_x, coord_y, coord_z = int(marcacao.x * resolucao_x), int(marcacao.y * resolucao_y), int(marcacao.z * resolucao_x)
-                coordenadas.append((coord_x, coord_y, coord_z))   
-            info_mao['coordenadas'] = coordenadas
-            if lado_invertido:
-                if lado_mao.classification[0].label == 'Left':
-                    info_mao['lado'] = 'Right'
-                else:
-                    info_mao['lado'] = 'Left'
+    result = hands.process(img_rgb)
+    all_hands = []
+    if result.multi_hand_landmarks:
+        for hand_side, hand_landmarks in zip(result.multi_handedness, result.multi_hand_landmarks):
+            hand_info = {}
+            coords = []
+            for lm in hand_landmarks.landmark:
+                x, y, z = int(lm.x * RES_X), int(lm.y * RES_Y), int(lm.z * RES_X)
+                coords.append((x, y, z))
+            hand_info['coords'] = coords
+            if flip_side:
+                hand_info['side'] = 'Right' if hand_side.classification[0].label == 'Left' else 'Left'
             else:
-                info_mao['lado'] = lado_mao.classification[0].label
-                        
-            todas_maos.append(info_mao)
-            mp_desenho.draw_landmarks(img,
-                                    marcacoes_maos, 
-                                    mp_maos.HAND_CONNECTIONS)
-    return img, todas_maos
+                hand_info['side'] = hand_side.classification[0].label
+            all_hands.append(hand_info)
+            mp_draw.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+    return img, all_hands
 
-def dedos_levantados(mao):
-    dedos = []
-    if mao['lado'] == 'Right': 
-        if mao['coordenadas'][4][0] < mao['coordenadas'][3][0]:
-            dedos.append(True)
-        else:
-            dedos.append(False)
+def fingers_up(hand):
+    """Return a list indicating which fingers are up."""
+    fingers = []
+    if hand['side'] == 'Right':
+        fingers.append(hand['coords'][4][0] < hand['coords'][3][0])
     else:
-        if mao['coordenadas'][4][0] > mao['coordenadas'][3][0]:
-            dedos.append(True)
-        else:
-            dedos.append(False)
-    for ponta_dedo in [8,12,16,20]:
-        if mao['coordenadas'][ponta_dedo][1] < mao['coordenadas'][ponta_dedo - 2][1]:
-            dedos.append(True)
-        else:
-            dedos.append(False)
-    return dedos
+        fingers.append(hand['coords'][4][0] > hand['coords'][3][0])
+    for tip in [8, 12, 16, 20]:
+        fingers.append(hand['coords'][tip][1] < hand['coords'][tip - 2][1])
+    return fingers
 
-def imprime_botoes(img, posicao, letra, tamanho = 50, cor_retangulo = COR_BRANCO):
-    cv2.rectangle(img, posicao, (posicao[0] + tamanho, posicao[1] + tamanho), cor_retangulo, cv2.FILLED)
-    cv2.rectangle(img, posicao, (posicao[0] + tamanho, posicao[1] + tamanho), COR_AZUL, 1)
-    cv2.putText(img, letra, (posicao[0] + 15, posicao[1] + 30), font_style, 1, COR_PRETO, 2)
+def draw_button(img, pos, key, size=50, rect_color=WHITE):
+    """Draw a virtual keyboard button."""
+    cv2.rectangle(img, pos, (pos[0] + size, pos[1] + size), rect_color, cv2.FILLED)
+    cv2.rectangle(img, pos, (pos[0] + size, pos[1] + size), BLUE, 1)
+    cv2.putText(img, key, (pos[0] + 15, pos[1] + 30), FONT, 1, BLACK, 2)
     return img
 
 while True:
-    sucesso, img = camera.read()
+    ret, img = cap.read()
     img = cv2.flip(img, 1)
-    img, todas_maos = encotra_coordenadas_maos(img)
+    img, all_hands = get_hand_landmarks(img)
 
-    # Retângulo fixo com dica de instrução
-    dica_texto = "Veja as instrucoes ao levantar dois polegares e saia da aplicacao com 'ESC'."
-    x_dica, y_dica, w_dica, h_dica = 0, 0, resolucao_x, 50
-    cv2.rectangle(img, (x_dica, y_dica), (x_dica + w_dica, y_dica + h_dica), COR_BRANCO, cv2.FILLED)
-    cv2.rectangle(img, (x_dica, y_dica), (x_dica + w_dica, y_dica + h_dica), COR_AZUL, 1)
-    cv2.putText(img, dica_texto, (x_dica + 15, y_dica + 35), font_style, 0.5, COR_PRETO, 1)
+    tip = "Raise right hand's fingers for instructions. Press 'ESC' to exit."
+    x_tip, y_tip, w_tip, h_tip = 0, 0, RES_X, 30
+    cv2.rectangle(img, (x_tip, y_tip), (x_tip + w_tip, y_tip + h_tip), WHITE, cv2.FILLED)
+    cv2.rectangle(img, (x_tip, y_tip), (x_tip + w_tip, y_tip + h_tip), BLUE, 1)
+    cv2.putText(img, tip, (x_tip + 5, y_tip + 20), FONT, 0.6, BLACK, 1)
 
-    if len(todas_maos) == 1:
-        info_dedos_mao1 = dedos_levantados(todas_maos[0])
-        if todas_maos[0]['lado'] == 'Right':
-            indicador_x, indicador_y, indicador_z = todas_maos[0]['coordenadas'][8]
-            cv2.putText(img, f"Distancia camera: {indicador_z}", (850, 50), font_style, 1, COR_PRETO, 2)
-            for indice_linha, linha_teclado in enumerate(teclas):
-                for indice, letra in enumerate(linha_teclado):
-                    if sum(info_dedos_mao1) <= 1:
-                        letra = letra.lower()
-                    img = imprime_botoes(img, (offset + indice * (tamanho + 30), offset + indice_linha * (tamanho + 30)), letra)
-                    if (offset + indice * 80) < indicador_x < (100 + indice * 80) and (offset + indice_linha * 80) < indicador_y < (100 + indice_linha * 80):
-                        img = imprime_botoes(img, (offset + indice * (tamanho + 30), offset + indice_linha * (tamanho + 30)), letra, cor_retangulo = COR_VERDE)
-                        if indicador_z < -65:
-                            contador = 1
-                            escreve = letra
-                            img = imprime_botoes(img, (offset + indice * (tamanho + 30), offset + indice_linha * (tamanho + 30)), letra, cor_retangulo = COR_AZUL_CLARO)
-            if contador:
-                contador += 1
-                if contador == 3:
-                    texto += escreve
-                    contador = 0
-                    teclado.press(escreve)
-            if info_dedos_mao1 == dedos_true_4 and len(texto) > 1:
-                texto = texto[:-1]
-                teclado.press(Key.backspace)
+    if len(all_hands) == 1:
+        hand1_fingers = fingers_up(all_hands[0])
+        if all_hands[0]['side'] == 'Right':
+            idx_x, idx_y, idx_z = all_hands[0]['coords'][8]
+            cv2.putText(img, f"Press on -65 or lower", (850, 105), FONT, 0.6, BLACK, 1)
+            cv2.putText(img, f"Distance: {idx_z}", (850, 130), FONT, 0.6, BLACK, 1)
+            for row_idx, row in enumerate(KEYS):
+                for col_idx, key in enumerate(row):
+                    key_disp = key.lower() if sum(hand1_fingers) <= 1 else key
+                    img = draw_button(img, (OFFSET + col_idx * (BTN_SIZE + 30), OFFSET + row_idx * (BTN_SIZE + 30)), key_disp)
+                    if (OFFSET + col_idx * 80) < idx_x < (100 + col_idx * 80) and (OFFSET + row_idx * 80) < idx_y < (100 + row_idx * 80):
+                        img = draw_button(img, (OFFSET + col_idx * (BTN_SIZE + 30), OFFSET + row_idx * (BTN_SIZE + 30)), key_disp, rect_color=GREEN)
+                        if idx_z < -65:
+                            key_delay = 1
+                            key_to_type = key_disp
+                            img = draw_button(img, (OFFSET + col_idx * (BTN_SIZE + 30), OFFSET + row_idx * (BTN_SIZE + 30)), key_disp, rect_color=LIGHT_BLUE)
+            if key_delay:
+                key_delay += 1
+                if key_delay == 3:
+                    text += key_to_type
+                    key_delay = 0
+                    keyboard.press(key_to_type)
+            if hand1_fingers == FINGER_4 and len(text) > 1:
+                text = text[:-1]
+                keyboard.press(Key.backspace)
                 sleep(0.15)
-            cv2.rectangle(img, (offset, 450), (830, 500), COR_BRANCO, cv2.FILLED)
-            cv2.rectangle(img, (offset, 450), (830, 500), COR_AZUL, 1)
-            cv2.putText(img, texto[-40:], (offset, 480), font_style, 1, COR_PRETO, 2)
-            cv2.circle(img, (indicador_x, indicador_y), 7, COR_AZUL, cv2.FILLED)
+            cv2.rectangle(img, (OFFSET, 450), (830, 500), WHITE, cv2.FILLED)
+            cv2.rectangle(img, (OFFSET, 450), (830, 500), BLUE, 1)
+            cv2.putText(img, text[-40:], (OFFSET, 480), FONT, 1, BLACK, 2)
+            cv2.circle(img, (idx_x, idx_y), 7, BLUE, cv2.FILLED)
 
-        if todas_maos[0]['lado'] == 'Left':
-            if info_dedos_mao1 == dedos_true_1 and word_app == False:
-                word_app = True
+            if hand1_fingers == FINGER_ALL:
+                x0, y0, w, h = OFFSET, OFFSET, (RES_X - 200), (RES_Y - 200)
+                cv2.rectangle(img, (x0, y0), (x0 + w, y0 + h), WHITE, cv2.FILLED)
+                cv2.rectangle(img, (x0, y0), (x0 + w, y0 + h), BLUE, 1)
+                for i, line in enumerate(INSTRUCTION.split('\n')):
+                    cv2.putText(img, line, (x0 + 15, y0 + 15 + i * 15), FONT, 0.7, BLACK, 1)
+
+        if all_hands[0]['side'] == 'Left':
+            if hand1_fingers == FINGER_1 and not word_open:
+                word_open = True
                 os.startfile(r'C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE')
-            if info_dedos_mao1 == dedos_true_1_2 and excel_app == False:
-                excel_app = True
+            if hand1_fingers == FINGER_1_2 and not excel_open:
+                excel_open = True
                 os.startfile(r'C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE')
-            if info_dedos_mao1 == dedos_true_1_2_3 and firefox_app == False:
-                firefox_app = True
+            if hand1_fingers == FINGER_1_2_3 and not firefox_open:
+                firefox_open = True
                 os.startfile(r'C:\Program Files\Mozilla Firefox\firefox.exe')
-            if info_dedos_mao1 == dedos_false and firefox_app == True:
-                firefox_app = False
+            if hand1_fingers == FINGER_NONE and firefox_open:
+                firefox_open = False
                 os.system('TASKKILL /IM firefox.exe')
-            if info_dedos_mao1 == dedos_true_1_4:
+            if hand1_fingers == FINGER_1_4:
                 break
 
-    if len(todas_maos) == 2:
-        info_dedos_mao1 = dedos_levantados(todas_maos[0])
-        info_dedos_mao2 = dedos_levantados(todas_maos[1])
+    if len(all_hands) == 2:
+        hand1_fingers = fingers_up(all_hands[0])
+        hand2_fingers = fingers_up(all_hands[1])
+        idx_x, idx_y, idx_z = all_hands[0]['coords'][8]
 
-        indicador_x, indicador_y, indicador_z = todas_maos[0]['coordenadas'][8]
-
-        if sum(info_dedos_mao2) == 1:
-            cor_pincel = COR_AZUL
-        elif sum(info_dedos_mao2) == 2:
-            cor_pincel = COR_VERDE
-        elif sum(info_dedos_mao2) == 3:
-            cor_pincel = COR_VERMELHO
-        elif sum(info_dedos_mao2) == 4:
-            cor_pincel = COR_BRANCO
+        # Set brush color
+        if sum(hand2_fingers) == 1:
+            brush_color = BLUE
+        elif sum(hand2_fingers) == 2:
+            brush_color = GREEN
+        elif sum(hand2_fingers) == 3:
+            brush_color = RED
+        elif sum(hand2_fingers) == 4:
+            brush_color = WHITE
         else:
-            img_quadro = np.ones((resolucao_y, resolucao_x, 3), np.uint8) * 255
-        
-        # espessura_pincel = int(abs(indicador_z)) // 3 + 5
-        if indicador_z < -60:
-            espessura_pincel = 30
-        elif indicador_z <= -40:
-            espessura_pincel = 20
+            draw_board = np.ones((RES_Y, RES_X, 3), np.uint8) * 255
+
+        # Set brush thickness
+        if idx_z < -60:
+            brush_thickness = 30
+        elif idx_z <= -40:
+            brush_thickness = 20
         else:
-            espessura_pincel = 10
-            
-        cv2.circle(img, (indicador_x, indicador_y), espessura_pincel, cor_pincel, cv2.FILLED)
+            brush_thickness = 10
 
-        if info_dedos_mao1 == dedos_true_1:
-            if x_quadro == 0 and y_quadro ==0:
-                x_quadro, y_quadro = indicador_x, indicador_y
-            cv2.line(img_quadro, (x_quadro, y_quadro), (indicador_x, indicador_y), cor_pincel, espessura_pincel)
-            x_quadro, y_quadro = indicador_x, indicador_y
-            
+        cv2.circle(img, (idx_x, idx_y), brush_thickness, brush_color, cv2.FILLED)
+
+        if hand1_fingers == FINGER_1:
+            if last_x == 0 and last_y == 0:
+                last_x, last_y = idx_x, idx_y
+            cv2.line(draw_board, (last_x, last_y), (idx_x, idx_y), brush_color, brush_thickness)
+            last_x, last_y = idx_x, idx_y
         else:
-            x_quadro, y_quadro = 0, 0
-        
-        img = cv2.addWeighted(img, 1, img_quadro, 0.2, 0)
+            last_x, last_y = 0, 0
 
-    # Exibir instruções se os dois polegares estiverem levantados (e nenhum outro dedo) - melhorar essa chamada!
-    if len(todas_maos) == 2:
-        dedos_mao1 = dedos_levantados(todas_maos[0])
-        dedos_mao2 = dedos_levantados(todas_maos[1])
-        if dedos_mao1[0] and dedos_mao2[0] and not any(dedos_mao1[1:]) and not any(dedos_mao2[1:]):
-            # Caixa de instruções
-            x0, y0, w, h = 50, 50, (resolucao_x - 50), (resolucao_y - 50)
-            cv2.rectangle(img, (x0, y0), (x0 + w, y0 + h), COR_BRANCO, cv2.FILLED)
-            cv2.rectangle(img, (x0, y0), (x0 + w, y0 + h), COR_AZUL, 2)
-            for i, linha in enumerate(instrucao_texto.split('\n')):
-                cv2.putText(img, linha, (x0 + 20, y0 + 40 + i * 35), font_style, 0.5, COR_PRETO, 1)
+        img = cv2.addWeighted(img, 1, draw_board, 0.2, 0)
 
-    cv2.imshow('Imagem', img)
-    cv2.imshow('Quadro', img_quadro)
+    cv2.imshow('Image', img)
+    cv2.imshow('Board', draw_board)
 
-    tecla = cv2.waitKey(1)
-    if tecla == 27:
+    key = cv2.waitKey(1)
+    if key == 27:
         break
 
-with open('/results/text.txt', 'w') as arquivo:
-    arquivo.write(texto)
+with open('results/text.txt', 'w') as f:
+    f.write(text)
 
-cv2.imwrite('/results/quadro.png', img_quadro)
+cv2.imwrite('results/board.png', draw_board)

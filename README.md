@@ -1,46 +1,61 @@
-# Nome do Projeto
+# Visão Computacional: Hand Tracking com OpenCV e MediaPipe
 
-> Breve descrição do projeto em 2-3 frases, explicando o propósito, motivação e problema que resolve.
+> Projeto Python para detecção e rastreamento de mãos em tempo real, reconhecimento de gestos, teclado virtual e quadro de desenho usando OpenCV e MediaPipe. Permite interação intuitiva com o computador por gestos, incluindo controle de aplicativos e desenho virtual.
 
 ![Demonstração do sistema](link-para-gif-ou-imagem)
 
 ## Funcionalidades Principais
 
-- Liste as principais funcionalidades do projeto.
-- Destaque o que é inovador ou diferencial.
+- Detecção e rastreamento de mãos em tempo real com MediaPipe
+- Teclado virtual: digite tocando nas teclas virtuais com o dedo indicador
+- Abrir e fechar aplicativos (Word, Excel, Firefox) com gestos da mão esquerda
+- Quadro de desenho virtual: desenhe, apague e altere cor/espessura do pincel com gestos
+- Feedback visual para gestos e ações detectadas
 
 ## Tecnologias Utilizadas
 
-- Liste as principais tecnologias, frameworks e bibliotecas.
+- Python 3
+- OpenCV
+- MediaPipe
+- pynput
+- NumPy
 
 ## Como Executar
 
-1. Clone o repositório:
-   ```
-   git clone https://github.com/usuario/repositorio.git
-   ```
+1. Clone o repositório
 2. Instale as dependências:
    ```
-   comando de instalação
+   pip install opencv-python mediapipe pynput numpy
    ```
 3. Execute o projeto:
    ```
-   comando para rodar
+   python scripts/app.py
    ```
 
 ## Como Usar
 
-- Explique como acessar e testar as principais funcionalidades.
-- Se necessário, inclua exemplos de uso ou prints.
+- Use a mão direita para digitar no teclado virtual. Toque em uma tecla com o indicador para digitar. Levante apenas o mindinho direito para apagar.
+- Use a mão esquerda para abrir/fechar aplicativos:
+  - Indicador levantado: abre o Word
+  - Indicador e médio levantados: abre o Excel
+  - Indicador, médio e anelar levantados: abre o Firefox
+  - Todos os dedos abaixados: fecha o Firefox
+- Use as duas mãos para desenhar:
+  - Mão esquerda define a cor do pincel (1 dedo: azul, 2: verde, 3: vermelho, 4: borracha, todos abaixados: limpa quadro)
+  - Mão direita desenha com o indicador. A distância até a câmera altera a espessura do pincel.
+- Pressione 'ESC' para sair.
 
 ## Estrutura de Diretórios
 
 ```
-/nome-do-projeto
-├── src/
-├── data/
+/Python-VisaoComputacionalHandTrackingOpenCV
+├── class_files/
 ├── results/
-└── README.md
+├── scripts/
+│   ├── app.py
+│   └── teste_dedos.py
+├── README.md
+└── ...
 ```
 
 ## Status
