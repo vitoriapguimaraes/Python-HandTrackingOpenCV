@@ -2,7 +2,7 @@
 
 > Projeto Python para detecção e rastreamento de mãos em tempo real, reconhecimento de gestos, teclado virtual e quadro de desenho usando OpenCV e MediaPipe. Permite interação intuitiva com o computador por gestos, incluindo controle de aplicativos e desenho virtual.
 
-![Demonstração do sistema](link-para-gif-ou-imagem)
+![Demonstração do sistema](https://github.com/vitoriapguimaraes/Python-VisaoComputacionalHandTrackingOpenCV/blob/main/results/display.gif)
 
 ## Funcionalidades Principais
 
@@ -61,8 +61,6 @@
 ## Status
 
 - ✅ Concluído
-- 🛠️ Em manutenção
-- 🚧 Em desenvolvimento
 
 > Veja as [issues abertas](https://github.com/usuario/repositorio/issues) para sugestões de melhorias e próximos passos.
 
