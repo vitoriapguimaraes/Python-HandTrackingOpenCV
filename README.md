@@ -62,7 +62,7 @@
 
 - ✅ Concluído
 
-> Veja as [issues abertas](https://github.com/usuario/repositorio/issues) para sugestões de melhorias e próximos passos.
+> Veja as [issues abertas](https://github.com/vitoriapguimaraes/Python-HandTrackingOpenCV/issues) para sugestões de melhorias e próximos passos.
 
 ## Mais Sobre Mim
 
